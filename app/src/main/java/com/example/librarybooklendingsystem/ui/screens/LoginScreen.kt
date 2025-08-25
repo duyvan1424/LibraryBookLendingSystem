@@ -1,30 +1,49 @@
 package com.example.librarybooklendingsystem.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import com.example.librarybooklendingsystem.R
-import com.example.librarybooklendingsystem.data.AuthState
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.google.firebase.auth.FirebaseAuth
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
+import com.example.librarybooklendingsystem.R
+import com.example.librarybooklendingsystem.data.AuthState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,6 +145,11 @@ fun LoginScreen(navController: NavController) {
                     errorMessage = "Vui lòng nhập đầy đủ thông tin đăng nhập"
                     return@Button
                 }
+                if (!isValidPassword(password)) {
+                    errorMessage = "Mật khẩu phải có ít nhất 8 ký tự, bao gồm 1 chữ hoa, 1 số và 1 ký tự đặc biệt"
+                    return@Button
+                }
+
                 isLoading = true
                 AuthState.signIn(
                     email = email,
@@ -189,4 +213,8 @@ fun LoginScreen(navController: NavController) {
             }
         }
     }
+}
+fun isValidPassword(password: String): Boolean {
+    val passwordRegex = Regex("^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#%^&*(),.?\":{}|<>]).{8,}$")
+    return passwordRegex.matches(password)
 }

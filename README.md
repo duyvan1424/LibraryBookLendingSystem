@@ -2,7 +2,6 @@
 
 ## 👨‍💻 Nhóm Thực Hiện
 - **[Nguyễn Văn Duy]-MSSV: [2251120072]** – Thiết kế UI bằng Jetpack Compose,Tạo Firestore structure + xác thực người dùngt.
-> 📌 *Tổng cộng: 3 thành viên, chia việc theo mô hình Scrum.*
 
 ---
 
@@ -33,7 +32,7 @@
 
 1. Tải Android Studio tại: https://developer.android.com/studio
 2. Mở Android Studio, chọn **"Clone from GitHub"**
-   - Dán link repo: `https://github.com/XuanDuNe/Lap-trinh-app.git`
+   - Dán link repo: 
 
 ### ⚙️ Chạy dự án
 

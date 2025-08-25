@@ -4,19 +4,20 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.example.librarybooklendingsystem.notifications.NotificationHelper
+import com.google.firebase.Timestamp
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.analytics.ktx.logEvent
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.DocumentChange
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.analytics.ktx.analytics
-import com.google.firebase.analytics.ktx.logEvent
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.Timestamp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +26,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 object FirebaseManager {
     private val db: FirebaseFirestore = Firebase.firestore
@@ -829,22 +832,29 @@ object FirebaseManager {
             Log.e("FirebaseAnalytics", "Error logging book return event: ${e.message}")
         }
     }
-
+    fun isValidPassword(password: String): Boolean {
+        val passwordRegex = Regex("^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%^&*(),.?\":{}|<>]).{8,}\$")
+        return passwordRegex.matches(password)
+    }
     // Đăng ký user với short ID
     suspend fun registerUserWithShortId(email: String, password: String, name: String): String? {
+        // Kiểm tra mật khẩu trước khi gọi Firebase
+        if (!isValidPassword(password)) {
+            throw IllegalArgumentException("Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, số và ký tự đặc biệt")
+        }
         return try {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val user = result.user
 
             if (user != null) {
                 val shortId = generateShortId()
-                
+
                 val userData = mapOf(
                     "email" to email,
                     "role" to "user",
                     "shortId" to shortId,
                     "name" to name,
-                    "createdAt" to Date()
+                    "createdAt" to FieldValue.serverTimestamp()
                 )
 
                 db.collection(USERS_COLLECTION)
@@ -855,9 +865,9 @@ object FirebaseManager {
                 // Track user registration
                 analytics.logEvent(FirebaseAnalytics.Event.SIGN_UP) {
                     param(FirebaseAnalytics.Param.METHOD, "email")
-                    param(AnalyticsParams.USER_ID, user.uid)
-                    param(AnalyticsParams.EMAIL, email)
-                    param(FirebaseAnalytics.Param.SUCCESS, "1")
+                    param("user_id", user.uid)
+                    param("email", email)
+                    param("success", "1")
                 }
 
                 shortId
@@ -869,6 +879,7 @@ object FirebaseManager {
             throw e
         }
     }
+
 
     suspend fun loginUser(email: String, password: String): Boolean {
         return try {
