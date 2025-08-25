@@ -1,12 +1,7 @@
 # 📚 Ứng Dụng Mượn Trả Sách Thư Viện – Kotlin Android + Firebase
 
 ## 👨‍💻 Nhóm Thực Hiện
-
-- **[Nguyễn Xuân Dự]-MSSV: [2251120074]** – Leader, Thiết kế UI bằng Jetpack Compose,xử lý logic trình duyệt.
 - **[Nguyễn Văn Duy]-MSSV: [2251120072]** – Thiết kế UI bằng Jetpack Compose,Tạo Firestore structure + xác thực người dùngt.
-- **[Phạm Công Trứ]-MSSV: [2251120124]**  – Tạo màn hình yêu cầu mượn & xử lý logic duyệt,Tối ưu giao diện + UI/UX testing. 
-
-
 > 📌 *Tổng cộng: 3 thành viên, chia việc theo mô hình Scrum.*
 
 ---
@@ -53,12 +48,8 @@
 > Dùng thử với các tài khoản Firebase demo:
 
 - Người dùng:
-  - Email: `nxd04012004@gmail.com`
-  - Mật khẩu: `1234567`
 
 - Admin:
-  - Email: `nguyenxuandu0401@gmail.com`
-  - Mật khẩu: `1234567`
 
 *(Bạn cũng có thể đăng ký tài khoản mới ngay trong app.)*
 
@@ -87,11 +78,7 @@
 
 ## 📩 Liên Hệ Nhóm
 
-- Liên hệ: [2251120074@ut.edu.vn]
-- Facebook: [https://www.facebook.com/du.nguyenxuan.5680]
-
+- Liên hệ: [2251120072@ut.edu.vn]
 ---
-
-## ⭐ Repo: https://github.com/XuanDuNe/Lap-trinh-app.git
 
 Nếu thấy hữu ích hãy 🌟 repo để ủng hộ nhóm nhé!
