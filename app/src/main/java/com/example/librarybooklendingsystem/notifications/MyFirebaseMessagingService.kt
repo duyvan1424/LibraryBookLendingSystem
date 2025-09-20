@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.TaskStackBuilder
 import com.example.librarybooklendingsystem.MainActivity
 import com.example.librarybooklendingsystem.R
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -38,14 +39,18 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 	private fun showNotification(title: String, message: String) {
 		val channelId = "default_channel_id"
 		val intent = Intent(this, MainActivity::class.java).apply {
-			addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+			flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+			putExtra("destination", "notifications")
 		}
 		val pendingIntentFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+			PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 		} else {
-			PendingIntent.FLAG_ONE_SHOT
+			PendingIntent.FLAG_UPDATE_CURRENT
 		}
-		val pendingIntent = PendingIntent.getActivity(this, 0, intent, pendingIntentFlags)
+		val pendingIntent: PendingIntent = TaskStackBuilder.create(this).run {
+			addNextIntentWithParentStack(intent)
+			getPendingIntent(0, pendingIntentFlags)
+		} ?: PendingIntent.getActivity(this, 0, intent, pendingIntentFlags)
 
 		val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

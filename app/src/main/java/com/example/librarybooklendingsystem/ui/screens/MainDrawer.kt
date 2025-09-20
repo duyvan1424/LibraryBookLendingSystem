@@ -131,6 +131,18 @@ fun MainDrawer(
             }
         )
 
+        // Notifications
+        DrawerMenuItem(
+            icon = Icons.Default.Notifications,
+            text = "Thông báo",
+            onClick = {
+                navController.navigate("notifications") {
+                    launchSingleTop = true
+                }
+                onCloseDrawer()
+            }
+        )
+
         Divider(modifier = Modifier.padding(vertical = 8.dp))
 
         // Book Categories Section

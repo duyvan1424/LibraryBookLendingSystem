@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppNavigation() {
+fun AppNavigation(initialDestination: String? = null) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -46,7 +46,20 @@ fun AppNavigation() {
     }
 
     // Danh sách các màn hình được phép hiển thị drawer
-    val allowedRoutes = listOf("home", "bookDetails", "borrowbook", "account")
+    val allowedRoutes = listOf("home", "bookDetails", "borrowbook", "account", "notifications")
+
+    // Handle optional initial deep link navigation
+    LaunchedEffect(initialDestination, isLoggedIn) {
+        if (!initialDestination.isNullOrBlank()) {
+            when (initialDestination) {
+                "notifications" -> {
+                    if (isLoggedIn) {
+                        navController.navigate("notifications")
+                    }
+                }
+            }
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -163,6 +176,14 @@ private fun MainContent(
                 }
             }
 
+            composable(
+                "notifications",
+                enterTransition = { fadeIn() },
+                exitTransition = { fadeOut() }
+            ) {
+                NotificationsScreen(navController)
+            }
+
             // Màn hình đăng nhập và đăng ký
             composable(
                 "login",
@@ -258,6 +279,16 @@ private fun MainContent(
                     }
                 } else {
                     UserStatsScreen(navController) 
+                }
+            }
+            
+            composable("renewal_requests") { 
+                if (!isLoggedIn) {
+                    LaunchedEffect(Unit) {
+                        navController.navigate("login")
+                    }
+                } else {
+                    RenewalRequestsScreen(navController) 
                 }
             }
             

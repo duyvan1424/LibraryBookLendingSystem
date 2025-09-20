@@ -114,7 +114,9 @@ fun HomeScreen(
             title = "My Library",
             onBackClick = { navController.navigateUp() },
             showShareButton = false,
-            showBackButton = false
+            showNotificationsButton = true,
+            showBackButton = false,
+            onNotificationsClick = { navController.navigate("notifications") }
         )
 
         // Show selected category

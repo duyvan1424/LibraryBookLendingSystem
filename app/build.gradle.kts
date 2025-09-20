@@ -118,4 +118,7 @@ dependencies {
     implementation("com.sun.mail:android-activation:1.6.7") {
         exclude(group = "com.sun.activation", module = "javax.activation")
     }
+
+    // WorkManager for background reminders/overdue processing
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 }

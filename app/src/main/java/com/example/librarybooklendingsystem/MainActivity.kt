@@ -1,5 +1,4 @@
 package com.example.librarybooklendingsystem
-import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Bundle
@@ -45,6 +44,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.librarybooklendingsystem.ui.navigation.AppNavigation
 import com.example.librarybooklendingsystem.ui.viewmodels.BookViewModel
 import com.example.librarybooklendingsystem.ui.viewmodels.CategoryViewModel
+import com.example.librarybooklendingsystem.notifications.NotificationHelper
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.example.librarybooklendingsystem.notifications.DueReminderWorker
 
 class MainActivity : ComponentActivity() {
     private lateinit var analytics: FirebaseAnalytics
@@ -126,30 +129,35 @@ class MainActivity : ComponentActivity() {
         AuthState.init(this)
         FirebaseManager.initialize(this)
 
+        // Handle deep link from notifications (also for cold start)
+        val destination = intent?.getStringExtra("destination")
+        Log.d("MainActivity", "Initial destination from intent: $destination")
+
+
         setContent {
             LibraryBookLendingSystemTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation()
+                    AppNavigation(initialDestination = destination)
                 }
             }
         }
     }
-}
 
-class MyApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        try {
-            if (FirebaseApp.getApps(this).isEmpty()) {
-                FirebaseApp.initializeApp(this)
-                Log.d("FirebaseCheck", "Firebase được khởi tạo trong Application")
+    override fun onNewIntent(intent: android.content.Intent?) {
+        super.onNewIntent(intent)
+        // Update intent extras so compose reads the latest destination if activity is reused
+        setIntent(intent)
+        
+        // Handle deep link from notification
+        intent?.let { 
+            val destination = it.getStringExtra("destination")
+            if (destination == "notifications") {
+                Log.d("MainActivity", "Deep link to notifications received")
+                // The AppNavigation will handle this in LaunchedEffect
             }
-        } catch (e: Exception) {
-            Log.e("FirebaseCheck", "Lỗi khởi tạo Firebase trong Application: ${e.message}")
-            e.printStackTrace()
         }
     }
 }
@@ -294,8 +302,11 @@ fun MainScreen() {
                 composable("pending_approvals") { PendingBooksApprovalScreen(navController) }
                 composable("library_stats") { LibraryStatsScreen(navController) }
                 composable("user_stats") { UserStatsScreen(navController) }
+                composable("renewal_requests") { RenewalRequestsScreen(navController) }
                 composable("borrowed_books_stats") { BorrowedBooksStatsScreen(navController) }
                 composable("returned_books_stats") { ReturnedBooksStatsScreen(navController) }
+                // Fallback notifications route in case this NavHost is used
+                composable("notifications") { NotificationsScreen(navController) }
             }
         }
     }

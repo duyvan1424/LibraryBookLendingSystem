@@ -34,13 +34,24 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun BookDetailsScreen(navController: NavController, bookId: String) {
     var book by remember { mutableStateOf<Book?>(null) }
+    var currentBorrow by remember { mutableStateOf<Map<String, Any>?>(null) }
     val scope = rememberCoroutineScope()
     val isLoggedIn by AuthState.isLoggedIn.collectAsStateWithLifecycle()
     var showLoginDialog by remember { mutableStateOf(false) }
+    var showRenewalDialog by remember { mutableStateOf(false) }
+    var renewalMessage by remember { mutableStateOf("") }
 
     LaunchedEffect(bookId) {
         scope.launch {
             book = FirebaseManager.getBookById(bookId)
+            // Check if user is currently borrowing this book
+            if (isLoggedIn) {
+                val userId = AuthState.currentUserId
+                if (userId != null) {
+                    val borrows = FirebaseManager.getUserBorrowedBooks(userId)
+                    currentBorrow = borrows?.find { it["bookId"] == bookId }
+                }
+            }
         }
     }
 
@@ -63,6 +74,44 @@ fun BookDetailsScreen(navController: NavController, bookId: String) {
                 TextButton(
                     onClick = { showLoginDialog = false }
                 ) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
+
+    if (showRenewalDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenewalDialog = false },
+            title = { Text("Yêu cầu gia hạn") },
+            text = { Text(renewalMessage) },
+            confirmButton = {
+                TextButton(onClick = { 
+                    // Request renewal
+                    scope.launch {
+                        val borrow = currentBorrow
+                        val borrowId = borrow?.get("id") as? String
+                        if (borrowId != null) {
+                            val success = FirebaseManager.requestRenewal(borrowId)
+                            if (success) {
+                                showRenewalDialog = false
+                                // Refresh borrow status
+                                val userId = AuthState.currentUserId
+                                if (userId != null) {
+                                    val borrows = FirebaseManager.getUserBorrowedBooks(userId)
+                                    currentBorrow = borrows?.find { it["bookId"] == bookId }
+                                }
+                            } else {
+                                renewalMessage = "Có lỗi xảy ra khi gửi yêu cầu gia hạn."
+                            }
+                        }
+                    }
+                }) {
+                    Text("Gửi yêu cầu")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenewalDialog = false }) {
                     Text("Hủy")
                 }
             }
@@ -145,27 +194,86 @@ fun BookDetailsScreen(navController: NavController, bookId: String) {
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { 
-                            if (isLoggedIn) {
-                                navController.navigate("borrowBook/${book?.id}")
-                            } else {
-                                showLoginDialog = true
+                    
+                    // Show borrow button or renewal button based on current status
+                    val borrow = currentBorrow
+                    if (borrow != null) {
+                        // User is currently borrowing this book
+                        val status = borrow["status"] as? String ?: ""
+                        val renewalsUsed = (borrow["renewalsUsed"] as? Long)?.toInt() ?: 0
+                        val maxRenewals = (borrow["maxRenewals"] as? Long)?.toInt() ?: 2
+                        
+                        when (status) {
+                            "Đang mượn" -> {
+                                if (renewalsUsed < maxRenewals) {
+                                    Button(
+                                        onClick = { 
+                                            renewalMessage = "Bạn có thể gia hạn thêm ${maxRenewals - renewalsUsed} lần. Mỗi lần gia hạn được thêm 7 ngày."
+                                            showRenewalDialog = true
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(56.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF4CAF50)
+                                        )
+                                    ) {
+                                        Text(
+                                            text = "Gia hạn sách (${maxRenewals - renewalsUsed} lần còn lại)",
+                                            fontSize = 18.sp
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = "Bạn đã sử dụng hết số lần gia hạn",
+                                        color = Color.Red,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
                             }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF0288D1)
-                        ),
-                        enabled = book?.status == "Có sẵn"
-                    ) {
-                        Text(
-                            text = if (book?.status == "Có sẵn") "Mượn sách" else "Không có sẵn",
-                            fontSize = 18.sp
-                        )
+                            "Chờ duyệt gia hạn" -> {
+                                Text(
+                                    text = "Đang chờ duyệt gia hạn",
+                                    color = Color(0xFFFF9800),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                            "Quá hạn" -> {
+                                Text(
+                                    text = "Sách đã quá hạn. Vui lòng trả sách hoặc nộp phạt.",
+                                    color = Color.Red,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    } else {
+                        // User is not borrowing this book
+                        Button(
+                            onClick = { 
+                                if (isLoggedIn) {
+                                    navController.navigate("borrowBook/${book?.id}")
+                                } else {
+                                    showLoginDialog = true
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF0288D1)
+                            ),
+                            enabled = book?.status == "Có sẵn"
+                        ) {
+                            Text(
+                                text = if (book?.status == "Có sẵn") "Mượn sách" else "Không có sẵn",
+                                fontSize = 18.sp
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))

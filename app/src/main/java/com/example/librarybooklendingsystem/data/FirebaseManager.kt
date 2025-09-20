@@ -278,6 +278,199 @@ object FirebaseManager {
         _currentUserRole.value = null
     }
 
+    // Block borrow if user has overdue or unpaid fines
+    suspend fun getUserBorrowBlockInfo(userId: String): Map<String, Any> {
+        return try {
+            val q = db.collection(BORROWS_COLLECTION)
+                .whereEqualTo("userId", userId)
+                .whereIn("status", listOf("Quá hạn", "Đang mượn"))
+                .get()
+                .await()
+
+            var hasOverdue = false
+            var hasUnpaidFine = false
+            for (doc in q.documents) {
+                if (doc.getString("status") == "Quá hạn") hasOverdue = true
+                val fineAmount = (doc.getLong("fineAmount") ?: 0L).toInt()
+                val finePaid = doc.getBoolean("finePaid") ?: false
+                if (fineAmount > 0 && !finePaid) hasUnpaidFine = true
+            }
+
+            if (hasOverdue || hasUnpaidFine) {
+                mapOf(
+                    "blocked" to true,
+                    "reason" to (if (hasOverdue) "Bạn đang có sách quá hạn." else "Bạn còn khoản phạt chưa thanh toán." )
+                )
+            } else mapOf("blocked" to false)
+        } catch (e: Exception) {
+            Log.e("FirebaseManager", "Lỗi khi kiểm tra block mượn: ${e.message}")
+            mapOf("blocked" to false)
+        }
+    }
+
+    // Request renewal by user
+    suspend fun requestRenewal(borrowId: String): Boolean {
+        return try {
+            val doc = db.collection(BORROWS_COLLECTION).document(borrowId).get().await()
+            if (!doc.exists()) return false
+
+            val status = doc.getString("status") ?: ""
+            if (status != "Đang mượn") throw Exception("Chỉ gia hạn khi đang mượn")
+
+            val renewalsUsed = (doc.getLong("renewalsUsed") ?: 0L).toInt()
+            val maxRenewals = (doc.getLong("maxRenewals") ?: 0L).toInt()
+            if (renewalsUsed >= maxRenewals) throw Exception("Đã đạt số lần gia hạn tối đa")
+
+            // Không cho gia hạn nếu đã quá hạn
+            val expected = doc.getTimestamp("expectedReturnDate")?.toDate()
+            if (expected != null && Date().after(expected)) throw Exception("Không thể gia hạn khi đã quá hạn")
+
+            db.collection(BORROWS_COLLECTION).document(borrowId)
+                .update(mapOf("status" to "Chờ duyệt gia hạn", "renewRequestDate" to Timestamp(Date())))
+                .await()
+            
+            // Gửi thông báo cho admin về yêu cầu gia hạn mới
+            val bookTitle = doc.getString("bookTitle") ?: "sách"
+            val userEmail = doc.getString("userEmail") ?: "Người dùng"
+            sendRenewalRequestNotificationToAdmin(bookTitle, userEmail)
+            
+            true
+        } catch (e: Exception) {
+            Log.e("FirebaseManager", "Lỗi yêu cầu gia hạn: ${e.message}")
+            false
+        }
+    }
+
+    // Gửi thông báo yêu cầu gia hạn cho admin
+    private fun sendRenewalRequestNotificationToAdmin(bookTitle: String, userEmail: String) {
+        try {
+            val title = "Yêu cầu gia hạn mới"
+            val message = "$userEmail yêu cầu gia hạn sách: $bookTitle"
+            NotificationHelper.showNotification(
+                appContext,
+                title = title,
+                message = message,
+                destination = "admin_borrows" // Navigate to admin borrows screen
+            )
+        } catch (e: Exception) {
+            Log.e("FirebaseManager", "Lỗi gửi thông báo gia hạn cho admin: ${e.message}")
+        }
+    }
+
+    // Gửi thông báo duyệt gia hạn cho user
+    private suspend fun sendRenewalApprovalNotificationToUser(bookTitle: String, userName: String, newExpectedDate: Date, userId: String) {
+        try {
+            val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+            val title = "Gia hạn được duyệt"
+            val message = "Xin chào $userName! Gia hạn sách '$bookTitle' đã được duyệt. Hạn trả mới: ${dateFormat.format(newExpectedDate)}"
+            
+            // Lưu thông báo vào database cho user cụ thể
+            val notificationData = mapOf(
+                "title" to title,
+                "message" to message,
+                "type" to "renewal_approved",
+                "userId" to userId,
+                "timestamp" to Timestamp(Date()),
+                "read" to false
+            )
+            
+            db.collection("notifications").add(notificationData).await()
+            Log.d("FirebaseManager", "Đã gửi thông báo duyệt gia hạn cho user: $userId")
+        } catch (e: Exception) {
+            Log.e("FirebaseManager", "Lỗi gửi thông báo duyệt gia hạn cho user: ${e.message}")
+        }
+    }
+
+    // Gửi thông báo từ chối gia hạn cho user
+    private suspend fun sendRenewalRejectionNotificationToUser(bookTitle: String, userName: String, userId: String) {
+        try {
+            val title = "Gia hạn bị từ chối"
+            val message = "Xin chào $userName! Yêu cầu gia hạn sách '$bookTitle' đã bị từ chối. Vui lòng trả sách đúng hạn."
+            
+            // Lưu thông báo vào database cho user cụ thể
+            val notificationData = mapOf(
+                "title" to title,
+                "message" to message,
+                "type" to "renewal_rejected",
+                "userId" to userId,
+                "timestamp" to Timestamp(Date()),
+                "read" to false
+            )
+            
+            db.collection("notifications").add(notificationData).await()
+            Log.d("FirebaseManager", "Đã gửi thông báo từ chối gia hạn cho user: $userId")
+        } catch (e: Exception) {
+            Log.e("FirebaseManager", "Lỗi gửi thông báo từ chối gia hạn cho user: ${e.message}")
+        }
+    }
+
+    // Reject renewal by admin
+    suspend fun rejectRenewal(borrowId: String): Boolean {
+        return try {
+            val docRef = db.collection(BORROWS_COLLECTION).document(borrowId)
+            val doc = docRef.get().await()
+            if (!doc.exists()) return false
+
+            // Chuyển trạng thái về "Đang mượn"
+            docRef.update(mapOf("status" to "Đang mượn")).await()
+            
+            // Gửi thông báo cho user về việc từ chối gia hạn
+            val bookTitle = doc.getString("bookTitle") ?: "sách"
+            val userName = doc.getString("studentName") ?: doc.getString("userEmail") ?: "Người dùng"
+            val userId = doc.getString("userId") ?: ""
+            sendRenewalRejectionNotificationToUser(bookTitle, userName, userId)
+            
+            true
+        } catch (e: Exception) {
+            Log.e("FirebaseManager", "Lỗi từ chối gia hạn: ${e.message}")
+            false
+        }
+    }
+
+    // Approve renewal by admin
+    suspend fun approveRenewal(borrowId: String): Boolean {
+        return try {
+            val docRef = db.collection(BORROWS_COLLECTION).document(borrowId)
+            val doc = docRef.get().await()
+            if (!doc.exists()) return false
+
+            val renewalsUsed = (doc.getLong("renewalsUsed") ?: 0L).toInt()
+            val maxRenewals = (doc.getLong("maxRenewals") ?: 0L).toInt()
+            val renewDays = (doc.getLong("renewDays") ?: 7L).toInt()
+
+            if (renewalsUsed >= maxRenewals) throw Exception("Đã đạt số lần gia hạn tối đa")
+
+            val expected = doc.getTimestamp("expectedReturnDate")?.toDate() ?: Date()
+            val cal = Calendar.getInstance().apply { time = expected; add(Calendar.DAY_OF_MONTH, renewDays) }
+            val newExpected = cal.time
+
+            docRef.update(
+                mapOf(
+                    "expectedReturnDate" to Timestamp(newExpected),
+                    "renewalsUsed" to renewalsUsed + 1,
+                    "status" to "Đang mượn"
+                )
+            ).await()
+            
+            // Gửi thông báo cho user về việc duyệt gia hạn
+            val bookTitle = doc.getString("bookTitle") ?: "sách"
+            val userName = doc.getString("studentName") ?: doc.getString("userEmail") ?: "Người dùng"
+            val userId = doc.getString("userId") ?: ""
+            sendRenewalApprovalNotificationToUser(bookTitle, userName, newExpected, userId)
+            
+            true
+        } catch (e: Exception) {
+            Log.e("FirebaseManager", "Lỗi duyệt gia hạn: ${e.message}")
+            false
+        }
+    }
+
+    // Calculate fine utility
+    fun calculateFine(expectedReturn: Date, actualReturn: Date, finePerDay: Int = 5000): Int {
+        val days = ((actualReturn.time - expectedReturn.time) / (24L * 60L * 60L * 1000L)).toInt().coerceAtLeast(0)
+        return days * finePerDay
+    }
+
     // Collection names
     private const val USERS_COLLECTION = "users"
     private const val ADMIN_COLLECTION = "admin"
@@ -588,10 +781,23 @@ object FirebaseManager {
                 throw Exception("Bạn đã mượn sách này và chưa trả. Vui lòng trả sách trước khi mượn lại.")
             }
 
-            // Thêm yêu cầu mượn sách với trạng thái pending
+            // Kiểm tra block: nếu user đang có quá hạn hoặc chưa nộp phạt thì chặn
+            val blockInfo = getUserBorrowBlockInfo(userId)
+            if (blockInfo["blocked"] == true) {
+                val reason = blockInfo["reason"] as? String ?: "Tài khoản đang bị hạn chế mượn."
+                throw Exception(reason)
+            }
+
+            // Thêm yêu cầu mượn sách với trạng thái pending và default gia hạn/phạt
             val borrowRequest = borrowData.toMutableMap().apply {
                 put("status", "pending")
                 put("createdAt", Timestamp(Date()))
+                putIfAbsent("maxRenewals", 2)
+                putIfAbsent("renewalsUsed", 0)
+                putIfAbsent("renewDays", 7)
+                putIfAbsent("finePerDay", 5000)
+                putIfAbsent("fineAmount", 0)
+                putIfAbsent("finePaid", false)
             }
 
             val docRef = db.collection(BORROWS_COLLECTION)
@@ -972,6 +1178,13 @@ object FirebaseManager {
             val bookId = book["id"] as? String ?: ""
             val bookTitle = book["title"] as? String ?: ""
             
+            // Kiểm tra block: nếu user đang có quá hạn hoặc chưa nộp phạt thì chặn
+            val blockInfo = getUserBorrowBlockInfo(userId)
+            if (blockInfo["blocked"] == true) {
+                val reason = blockInfo["reason"] as? String ?: "Tài khoản đang bị hạn chế mượn."
+                throw Exception(reason)
+            }
+
             // Kiểm tra số lượng sách có sẵn
             val bookDoc = db.collection(BOOKS_COLLECTION)
                 .document(bookId)
@@ -1013,7 +1226,13 @@ object FirebaseManager {
                 "studentName" to (book["studentName"] as? String ?: ""),
                 "borrowDate" to Timestamp(currentDate),
                 "expectedReturnDate" to Timestamp(expectedReturnDate),
-                "status" to "Đang mượn"
+                "status" to "Đang mượn",
+                "maxRenewals" to 2,
+                "renewalsUsed" to 0,
+                "renewDays" to 7,
+                "finePerDay" to 5000,
+                "fineAmount" to 0,
+                "finePaid" to false
             )
 
             Log.d("FirebaseManager", "Dữ liệu mượn sách: $borrowData")

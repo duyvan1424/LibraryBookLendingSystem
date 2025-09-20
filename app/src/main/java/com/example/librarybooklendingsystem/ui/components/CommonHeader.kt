@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -21,7 +22,9 @@ fun CommonHeader(
     title: String,
     onBackClick: () -> Unit,
     onShareClick: () -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
     showShareButton: Boolean = true,
+    showNotificationsButton: Boolean = false,
     showBackButton: Boolean =true
 ) {
     Box(
@@ -57,21 +60,36 @@ fun CommonHeader(
             modifier = Modifier.align(Alignment.Center)
         )
         
-        // Share button (optional)
-        if (showShareButton) {
-            IconButton(
-                onClick = onShareClick,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp)
-                    .size(48.dp)
-            ) {
-                Icon(
-                    Icons.Default.Share,
-                    contentDescription = "Share",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
+        Row(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 8.dp)
+        ) {
+            if (showNotificationsButton) {
+                IconButton(
+                    onClick = onNotificationsClick,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Notifications,
+                        contentDescription = "Notifications",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+            if (showShareButton) {
+                IconButton(
+                    onClick = onShareClick,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = "Share",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
     }
