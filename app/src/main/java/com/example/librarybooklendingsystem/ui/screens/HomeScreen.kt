@@ -62,7 +62,7 @@ fun HomeScreen(
         R.drawable.image4
     )
 
-    // Tự động chuyển đổi banner mỗi 3 giây
+
     LaunchedEffect(Unit) {
         while (true) {
             delay(3000)
@@ -85,10 +85,8 @@ fun HomeScreen(
         }
     }
 
-    // Collect UI state
     val uiState by viewModel.uiState.collectAsState()
 
-    // Filter books based on search query
     val filteredBooks = when (uiState) {
         is BooksUiState.Success -> {
             val books = (uiState as BooksUiState.Success).books
@@ -338,38 +336,6 @@ fun FirebaseBookItem(
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun HomeScreenPreview() {
-    val navController = rememberNavController()
-    HomeScreen(navController = navController)
-}
-
-@Preview(showBackground = true)
-@Composable
-fun FirebaseBookItemPreview() {
-    val book = Book(
-        id = "1",
-        title = "Sample Book",
-        author_name = "Author",
-        category = "Category",
-        status = "Có sẵn",
-        coverUrl = "",
-        description = "",
-        createdAt = java.util.Date(),
-        borrowCount = 0
-    )
-    FirebaseBookItem(
-        navController = rememberNavController(),
-        book = book
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun SectionHeaderPreview() {
-    SectionHeader(title = "Top 10 đọc nhiều")
-}
 
 
 

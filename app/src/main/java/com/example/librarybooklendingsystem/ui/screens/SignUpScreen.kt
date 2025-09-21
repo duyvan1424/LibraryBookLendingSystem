@@ -53,6 +53,12 @@ fun SignUpScreen(navController: NavController) {
 
     // Email validation pattern
     val emailPattern = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+    
+    // Password validation function
+    fun isValidPassword(password: String): Boolean {
+        val passwordRegex = Regex("^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%^&*(),.?\":{}|<>]).{8,}\$")
+        return passwordRegex.matches(password)
+    }
 
     Column(
         modifier = Modifier
@@ -123,6 +129,16 @@ fun SignUpScreen(navController: NavController) {
                     .padding(vertical = 8.dp),
                 shape = RoundedCornerShape(12.dp)
             )
+            
+            // Password requirements
+            Text(
+                text = "Mật khẩu phải có ít nhất 8 ký tự, bao gồm 1 chữ hoa, 1 số và 1 ký tự đặc biệt",
+                fontSize = 12.sp,
+                color = Color.Gray,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            )
 
             // Confirm Password field
             OutlinedTextField(
@@ -159,8 +175,8 @@ fun SignUpScreen(navController: NavController) {
                         return@Button
                     }
 
-                    if (password.length < 6) {
-                        errorMessage = "Password must be at least 6 characters"
+                    if (!isValidPassword(password)) {
+                        errorMessage = "Mật khẩu phải có ít nhất 8 ký tự, bao gồm 1 chữ hoa, 1 số và 1 ký tự đặc biệt"
                         return@Button
                     }
 

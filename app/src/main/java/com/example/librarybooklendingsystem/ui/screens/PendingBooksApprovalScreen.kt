@@ -152,7 +152,7 @@ fun PendingBooksApprovalScreen(navController: NavController) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(
-                                    modifier = Modifier.weight(1f) // Chiếm phần còn lại
+                                    modifier = Modifier.weight(1f)
                                 ) {
                                     Text(
                                         text = "Tên người mượn: ${book["studentName"]}",
@@ -171,7 +171,7 @@ fun PendingBooksApprovalScreen(navController: NavController) {
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.width(12.dp)) // Tạo khoảng cách nhỏ giữa văn bản và nút
+                                Spacer(modifier = Modifier.width(12.dp))
 
                                 Button(
                                     onClick = {
@@ -190,7 +190,7 @@ fun PendingBooksApprovalScreen(navController: NavController) {
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFF0288D1)
                                     ),
-                                    modifier = Modifier.defaultMinSize(minWidth = 80.dp) // đảm bảo nút không quá nhỏ
+                                    modifier = Modifier.defaultMinSize(minWidth = 80.dp)
                                 ) {
                                     Text(
                                         text = "Duyệt",

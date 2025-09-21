@@ -156,8 +156,7 @@ fun LoginScreen(navController: NavController) {
                     password = password,
                     context = context,
                     onSuccess = {
-                        // Bỏ kiểm tra xác minh email
-                        
+
                         isLoading = false
                         if (isAdmin) {
                             navController.navigate("admin_dashboard") {

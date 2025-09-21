@@ -48,7 +48,7 @@ fun AppNavigation(initialDestination: String? = null) {
     // Danh sách các màn hình được phép hiển thị drawer
     val allowedRoutes = listOf("home", "bookDetails", "borrowbook", "account", "notifications")
 
-    // Handle optional initial deep link navigation
+
     LaunchedEffect(initialDestination, isLoggedIn) {
         if (!initialDestination.isNullOrBlank()) {
             when (initialDestination) {
